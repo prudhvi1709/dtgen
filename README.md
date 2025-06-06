@@ -13,14 +13,14 @@ An interactive web application for building and modifying decision trees using A
 - Real-time tree updates and modifications
 
 ### Work in Progress (WIP)
-- []Advanced tree pruning capabilities (e.g., limiting depth under specific nodes)
-- []Manual cutoff adjustments through chat interface
-- []Node reordering functionality
-- []More granular control over tree structure modifications
-- []Enhanced AI explanations with specific node-level details
-- []Support for different tree metrics beyond accuracy
-- []Improved error handling and user feedback
-- []Performance optimizations for large datasets
+-[] Advanced tree pruning capabilities (e.g., limiting depth under specific nodes)
+-[] Manual cutoff adjustments through chat interface
+-[] Node reordering functionality
+-[] More granular control over tree structure modifications
+-[] Enhanced AI explanations with specific node-level details
+-[] Support for different tree metrics beyond accuracy
+-[] Improved error handling and user feedback
+-[] Performance optimizations for large datasets
 
 ## Setup
 
