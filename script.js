@@ -1,69 +1,26 @@
 // Configuration
 export const DEFAULT_MAX_DEPTH = null;
-export const NODE_DIMENSIONS = {
-    width: 250,
-    height: 50,
-    verticalGap: 80,
-    horizontalGap: 40
-};
-export const TREE_DIMENSIONS = {
-    minWidth: 800,
-    minHeight: 400
-};
-export const COLORS = {
-    root: 'var(--bs-primary)',
-    leaf: 'var(--bs-info-bg-subtle)',
-    decision: 'var(--bs-warning-bg-subtle)',
-    rootStroke: 'var(--bs-primary-border-subtle)',
-    leafStroke: 'var(--bs-info-border-subtle)',
-    decisionStroke: 'var(--bs-warning-border-subtle)',
-    link: 'var(--bs-primary)'
-};
 
 import { TreeManager } from './treeManager.js';
-import { TreeVisualizer } from './treeVisualizer.js';
+import { TreeRenderer } from './treeRenderer.js';
 import { toggleSpinner } from './utils.js';
 
 // Initialize managers
 const treeManager = new TreeManager();
-const treeVisualizer = new TreeVisualizer('modalTreeContainer');
+const treeRenderer = new TreeRenderer('treeContainer');
 //  temporary to do testing in console
 window.treeManager = treeManager; 
+
 // Initialize the application
 async function init() {
     await treeManager.init();
     setupEventListeners();
-    addShowTreeButton();
     
     // Set up tree update callback
     treeManager.setTreeUpdateCallback((treeData) => {
-        treeVisualizer.visualize(treeData.tree);
-        const treeModal = new bootstrap.Modal(document.getElementById('treeModal'));
-        treeModal.show();
-        document.getElementById('showTreeBtn').classList.add('d-none');
+        treeRenderer.render(treeData.tree);
     });
 }
-
-// Add show tree button to the UI
-function addShowTreeButton() {
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'position-fixed bottom-0 end-0 m-3';
-    buttonContainer.innerHTML = `
-        <button id="showTreeBtn" class="btn btn-primary d-none" onclick="showTree()">
-            <i class="bi bi-diagram-3"></i> Show Tree
-        </button>
-    `;
-    document.body.appendChild(buttonContainer);
-}
-
-// Show tree visualization
-window.showTree = function() {
-    if (treeManager.currentTree) {
-        treeVisualizer.visualize(treeManager.currentTree);
-        const treeModal = new bootstrap.Modal(document.getElementById('treeModal'));
-        treeModal.show();
-    }
-};
 
 // Set up event listeners
 function setupEventListeners() {
@@ -74,10 +31,36 @@ function setupEventListeners() {
     document.getElementById('globalMaxDepth').addEventListener('change', e => treeManager.handleGlobalDepthChange(parseInt(e.target.value)));
     document.getElementById('clearPruningLimits').addEventListener('click', () => treeManager.clearAllPruningLimits());
     document.getElementById('targetColumn').addEventListener('change', handleGenerateTree);
+    document.getElementById('resetNodeOrder').addEventListener('click', resetNodeOrder);
+    
+    // Add Enter key support for chat input
+    document.getElementById('chatInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            handleChat();
+        }
+    });
 
-    // Add event listener for modal close
-    document.getElementById('treeModal').addEventListener('hidden.bs.modal', () => {
-        document.getElementById('showTreeBtn').classList.remove('d-none');
+    // Chat overlay toggle
+    document.getElementById('toggleChat').addEventListener('click', () => {
+        const chatOverlay = document.getElementById('chatOverlay');
+        const noTreeWarning = document.getElementById('noTreeWarning');
+        
+        // Show/hide warning based on tree availability
+        if (treeManager.trees.current) {
+            noTreeWarning.classList.add('d-none');
+        } else {
+            noTreeWarning.classList.remove('d-none');
+        }
+        
+        chatOverlay.classList.toggle('d-none');
+        document.getElementById('chatInput').focus();
+    });
+
+    // Close chat overlay with Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.getElementById('chatOverlay').classList.add('d-none');
+        }
     });
 }
 
@@ -112,6 +95,12 @@ async function handleChat() {
 
     chatInput.value = '';
     await treeManager.handleChat(message);
+}
+
+// Reset node ordering
+function resetNodeOrder() {
+    treeManager.nodeOrder.clear();
+    treeManager._refreshTree('Resetting node ordering');
 }
 
 // Initialize the application
