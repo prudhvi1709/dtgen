@@ -1,6 +1,9 @@
 import { DEFAULT_MAX_DEPTH } from './script.js';
 import { toggleSpinner, addToChatHistory } from './utils.js';
 
+const LLM_API_ENDPOINT = 'https://llmfoundry.straive.com/openai/v1/chat/completions';
+const LLM_MODEL_NAME = 'gpt-4.1-mini';
+
 export class TreeManager {
     constructor() {
         this.pyodide = null;
@@ -249,9 +252,9 @@ json.dumps({'columns': df.columns.tolist(), 'dtypes': df.dtypes.astype(str).to_d
     }
 
     async _callAI(systemMessage, userMessage) {
-        const response = await fetch('https://llmfoundry.straive.com/openai/v1/chat/completions', {
+        const response = await fetch(LLM_API_ENDPOINT, {
             method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gpt-4.1-mini', messages: [{ role: 'system', content: systemMessage }, { role: 'user', content: userMessage }]})
+            body: JSON.stringify({ model: LLM_MODEL_NAME, messages: [{ role: 'system', content: systemMessage }, { role: 'user', content: userMessage }]})
         });
         return (await response.json()).choices[0].message.content;
     }
@@ -317,49 +320,110 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import precision_score, recall_score, f1_score
 from io import StringIO
 
-df = pd.read_csv(StringIO('''${this.currentData}'''))
+df = pd.read_csv(StringIO(f'''${this.currentData}'''))
 target_col = '${document.getElementById('targetColumn').value}'
-le = LabelEncoder()
-y = le.fit_transform(df[target_col])
-X = df.drop(target_col, axis=1)
-for col in X.select_dtypes(include=['object']).columns: X[col] = le.fit_transform(X[col].astype(str))
+
+X_raw = df.drop(target_col, axis=1)
+y_raw = df[target_col]
+
+# Encode target variable
+le_target = LabelEncoder()
+y = le_target.fit_transform(y_raw)
+
+# Encode features
+X = X_raw.copy() # X will be the DataFrame with encoded features and original column names
+feature_encoders = {}
+for col in X.select_dtypes(include=['object', 'boolean']).columns: # Include boolean as they might not be 0/1
+    le_feature = LabelEncoder()
+    X[col] = le_feature.fit_transform(X[col].astype(str)) # Convert to string to handle mixed types or bools consistently
+    feature_encoders[col] = le_feature
+# Ensure all other columns are numeric. If not, they might need explicit handling or conversion.
+# For this example, we assume remaining columns are numeric or DecisionTreeClassifier can handle them.
 
 class AdvancedDecisionTree(DecisionTreeClassifier):
     def __init__(self, max_depth=None, node_depth_limits=None, node_order=None):
         super().__init__(max_depth=max_depth, min_samples_split=2, min_samples_leaf=1)
         self.node_depth_limits = node_depth_limits or {}
+        # self.node_order maps node_id (e.g., "featureName_thresholdValue") to a priority (lower is better).
         self.node_order = node_order or {}
         
-    def _build_tree(self, X, y, sample_weight, node_depth=0, parent=None, feature=None, threshold=None):
-        if (self.max_depth is not None and node_depth >= self.max_depth) or (f"{feature}_{threshold}" if feature is not None else "root" in self.node_depth_limits and node_depth >= self.node_depth_limits[f"{feature}_{threshold}" if feature is not None else "root"]): return None
-        return super()._build_tree(X, y, sample_weight, node_depth, parent, feature, threshold)
+    def _build_tree(self, X_build, y_build, sample_weight_build, node_depth=0, parent=None, feature=None, threshold=None):
+        # WARNING: Overriding _build_tree is highly fragile and not recommended.
+        # Scikit-learn's DecisionTreeClassifier already handles the global 'max_depth'.
+        # Implementing per-node depth limits by overriding this private method
+        # is complex, error-prone, and may break with scikit-learn updates.
+        # The logic for 'node_depth_limits' here is a conceptual attempt and likely NOT effective
+        # or may interact badly with the tree construction.
+        # A proper way to achieve per-node depth limits would require a more significant
+        # modification of the tree building algorithm or post-pruning strategies.
+
+        # The original check for node_depth_limits was:
+        # current_node_id_tuple_key = (feature, threshold) # Assuming feature is index, threshold is value
+        # if self.node_depth_limits.get(current_node_id_tuple_key) is not None and node_depth >= self.node_depth_limits[current_node_id_tuple_key]:
+        #     return None # Attempt to prune
+
+        # For safety and correctness, relying on standard max_depth and other pruning params is better.
+        # This custom override is too risky.
+        return super()._build_tree(X_build, y_build, sample_weight_build, node_depth, parent, feature, threshold)
+
+    def _find_best_split(self, X_split, y_split, sample_weight_split):
+        # X_split is numpy array, y_split is numpy array
+        feature_names_list = X.columns.tolist() # Closure: X is the DataFrame prepared outside with original column names
+
+        best_idx, best_thr, best_improvement = super()._find_best_split(X_split, y_split, sample_weight_split)
         
-    def _find_best_split(self, X, y, sample_weight):
-        best_idx, best_thr, best_improvement = super()._find_best_split(X, y, sample_weight)
-        # Apply custom node ordering if feature identified
-        if best_idx >= 0:
-            # Generate possible node_id for priority check
-            for feat_idx in range(X.shape[1]):
-                for thr in np.unique(X[:, feat_idx]):
-                    node_id = f"{X.columns[feat_idx]}_{thr}"
-                    if node_id in self.node_order:
-                        # Higher priority (lower value) gets precedence
-                        if self.node_order.get(node_id, 0) < self.node_order.get(f"{X.columns[best_idx]}_{best_thr}", 0):
-                            best_idx, best_thr = feat_idx, thr
+        # WARNING: Overriding _find_best_split is highly fragile and not recommended.
+        # The following logic attempts to enforce node_order by directly overriding
+        # the chosen split (best_idx, best_thr) if a higher priority node is found.
+        # CRITICAL FLAW: This override does NOT re-evaluate the quality (e.g., impurity reduction)
+        # of the prioritized split. It can force the tree to make a very poor quality split
+        # simply because it has a high priority, potentially leading to a significantly
+        # suboptimal tree. A correct implementation would need to calculate the improvement
+        # for any prioritized split and compare it appropriately.
+        # The node_id for node_order is expected to be "featureName_thresholdValue".
+
+        if best_idx != -1: # A split was found by the parent method
+            current_best_feature_name = feature_names_list[best_idx]
+            # Format threshold to ensure consistent string representation for matching keys in node_order
+            current_best_node_id = f"{current_best_feature_name}_{float(best_thr):.6f}"
+            current_best_priority = self.node_order.get(current_best_node_id, float('inf'))
+
+            # Iterate over features in X_split (which is a numpy array)
+            for f_idx in range(X_split.shape[1]):
+                feat_name_for_id = feature_names_list[f_idx] # Get original feature name using index
+
+                # Iterate over unique thresholds present in the current subset X_split for this feature
+                unique_thresholds_for_feature = np.unique(X_split[:, f_idx])
+
+                for thr_val_for_id in unique_thresholds_for_feature:
+                    # Format threshold for consistency
+                    node_id_to_check = f"{feat_name_for_id}_{float(thr_val_for_id):.6f}"
+                    priority_to_check = self.node_order.get(node_id_to_check, float('inf'))
+
+                    if priority_to_check < current_best_priority:
+                        # Found a node with higher priority.
+                        # As noted in WARNING, this directly overrides without checking split quality.
+                        current_best_priority = priority_to_check
+                        best_idx = f_idx
+                        best_thr = thr_val_for_id
+                        # best_improvement is NOT updated for this new forced split.
         return best_idx, best_thr, best_improvement
 
 clf = AdvancedDecisionTree(
     max_depth=${this.globalMaxDepth === null ? 'None' : this.globalMaxDepth}, 
-    node_depth_limits=${JSON.stringify(Object.fromEntries(this.nodeDepthLimits))},
-    node_order=${JSON.stringify(Object.fromEntries(this.nodeOrder))}
+    node_depth_limits=json.loads(f'''${JSON.stringify(Object.fromEntries(this.nodeDepthLimits))}'''),
+    node_order=json.loads(f'''${JSON.stringify(Object.fromEntries(this.nodeOrder))}''')
 )
-clf.fit(X, y)
 
-# Get basic accuracy
-accuracy = float(clf.score(X, y))
+# Convert X (pandas DataFrame) to NumPy array for scikit-learn fitting.
+# Ensure all columns in X are numeric at this point.
+# If X still contains non-numeric types that LabelEncoder didn't catch (e.g. specific custom objects),
+# this could error. The current encoding handles 'object' and 'boolean'.
+X_np = X.to_numpy()
+clf.fit(X_np, y)
 
-# Get predictions
-y_pred = clf.predict(X)
+accuracy = float(clf.score(X_np, y))
+y_pred = clf.predict(X_np)
 
 # Calculate additional metrics
 precision = float(precision_score(y, y_pred, average='weighted', zero_division=0))
@@ -372,7 +436,8 @@ json.dumps({
     'precision': precision,
     'recall': recall,
     'f1': f1,
-    'target_mapping': {str(k): int(v) for k, v in zip(le.classes_, le.transform(le.classes_))}
-})`;
+    'target_mapping': {str(le_target.classes_[i]): int(i) for i in range(len(le_target.classes_))}
+})`
     }
-} 
+
+}

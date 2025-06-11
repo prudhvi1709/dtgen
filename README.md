@@ -154,9 +154,9 @@ graph TD
 
 ## API Configuration
 
-To use the AI features, you need to:
-1. Replace `YOUR_API_KEY` in `app.js` with your actual API key / login to [LLM Foundry](https://llmfoundry.straive.com/)
-2. Ensure you have access to the LLM service at `https://llmfoundry.straive.com/openai/v1/chat/completions`
+To use the AI features, ensure you are logged into [LLM Foundry](https://llmfoundry.straive.com/) in your browser. The application will use your existing session to authenticate with the API service at `https://llmfoundry.straive.com/openai/v1/chat/completions`.
+
+The LLM API endpoint and model name are defined as constants (`LLM_API_ENDPOINT` and `LLM_MODEL_NAME`) at the top of the `treeManager.js` file. You can modify these constants if you need to use a different API endpoint or language model.
 
 ## Roadmap
 

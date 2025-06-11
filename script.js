@@ -8,8 +8,6 @@ import { toggleSpinner } from './utils.js';
 // Initialize managers
 const treeManager = new TreeManager();
 const treeRenderer = new TreeRenderer('treeContainer');
-//  temporary to do testing in console
-window.treeManager = treeManager; 
 
 // Initialize the application
 async function init() {
