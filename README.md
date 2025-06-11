@@ -16,7 +16,7 @@ An interactive web application for building, visualizing, and modifying decision
   - Performance analysis and improvement suggestions
 
 - **Advanced Visualization**
-  - Interactive D3.js-based tree visualization
+  - Custom interactive tree visualization
   - Expandable/collapsible nodes for easy navigation
   - Visual indicators for decision thresholds and leaf nodes
   - Tooltips with contextual information
@@ -84,7 +84,7 @@ An interactive web application for building, visualizing, and modifying decision
 The application uses a client-side architecture that combines:
 - JavaScript for UI interactions and tree management
 - Python (via Pyodide WebAssembly) for machine learning computation
-- D3.js for interactive tree visualization
+- Custom tree rendering with Bootstrap components
 - LLM API for AI assistance and explanations
 
 ```mermaid
@@ -92,12 +92,12 @@ graph TD
     subgraph "Frontend"
         UI["User Interface<br/>(HTML/CSS/Bootstrap)"]
         JS["JavaScript<br/>Controllers"]
-        D3["D3.js<br/>Visualization"]
+        TR["Custom Tree<br/>Visualization"]
     end
     
     subgraph "Core Components"
         TM["Tree Manager<br/>(treeManager.js)"]
-        TR["Tree Renderer<br/>(treeRenderer.js)"]
+        TRD["Tree Renderer<br/>(treeRenderer.js)"]
         UT["Utilities<br/>(utils.js)"]
         SC["Main Script<br/>(script.js)"]
     end
@@ -115,28 +115,28 @@ graph TD
     
     UI --> JS
     JS --> TM
-    JS --> TR
+    JS --> TRD
     TM --> PY
     PY --> ML
     PY --> PD
-    TR --> D3
+    TRD --> TR
     TM --> API
     UI --> CDN
     UT --> JS
     SC --> TM
-    SC --> TR
+    SC --> TRD
     
     CSV["CSV Data<br/>(User Upload)"] --> JS
     JS --> CSV
     
-    TM --> TR
+    TM --> TRD
 ```
 
 ### Application Flow
 1. User uploads CSV data through the interface
 2. Data is processed in-browser using Pyodide and pandas
 3. Tree Manager builds the decision tree using scikit-learn
-4. Tree Renderer visualizes the tree using D3.js
+4. Tree Renderer visualizes the tree using custom Bootstrap components
 5. User interacts with the tree via UI or chat interface
 6. AI assistance provided through LLM API calls
 7. Tree updates are processed and reflected in real-time
@@ -145,7 +145,7 @@ graph TD
 
 - **Frontend**
   - Bootstrap 5.3.0 (UI components and styling)
-  - D3.js v7 (Tree visualization)
+  - Bootstrap Icons
   
 - **Machine Learning**
   - Pyodide v0.24.1 (Python in browser)
