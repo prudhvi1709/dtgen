@@ -1,15 +1,27 @@
 // Configuration
-export const DEFAULT_MAX_DEPTH = null;
-
 import { TreeManager } from './treeManager.js';
 import { TreeRenderer } from './treeRenderer.js';
-import { toggleSpinner } from './utils.js';
+
+export const DEFAULT_MAX_DEPTH = null;
+
+// Utility functions
+export const toggleSpinner = (spinnerId, show) => {
+    const spinner = document.getElementById(spinnerId);
+    if (spinner) spinner.classList.toggle('d-none', !show);
+};
+
+export const addToChatHistory = (sender, message) => {
+    const chatHistory = document.getElementById('chatHistory');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'mb-2';
+    messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+    chatHistory.appendChild(messageDiv);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+};
 
 // Initialize managers
 const treeManager = new TreeManager();
 const treeRenderer = new TreeRenderer('treeContainer');
-//  temporary to do testing in console
-window.treeManager = treeManager; 
 
 // Initialize the application
 async function init() {
